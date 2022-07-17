@@ -1,0 +1,12 @@
+[Unit]
+Description=sinan shutdown service
+DefaultDependencies=no
+After=final.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/sinan_test/sinan_script shutdown
+
+[Install]
+WantedBy=final.target
+

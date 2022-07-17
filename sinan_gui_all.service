@@ -1,0 +1,15 @@
+[Unit]
+Description=Example systemd service.
+After=network.target
+After=systemd-user-sessions.service
+After=network-online.target
+ 
+[Service]
+Type=simple
+ExecStart=/usr/local/lib/sinan_test/sinan_script gui_all
+
+[Install]
+#WantedBy=graphical.target
+WantedBy=multi-user.target
+
+

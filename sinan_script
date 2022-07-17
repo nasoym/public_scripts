@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+set -o errexit  # abort when any commands exits with error
+set -o pipefail # abort when any command in a pipe exits with error
+set -o nounset  # abort when any unset variable is used
+set -o noglob # prevent bash from expanding glob
+set -o errtrace # inherits trap on ERR in function and subshell
+if [[ "${trace:=0}" -eq 1 ]];then
+  PS4=' ${LINENO}: '
+  set -x
+  export trace
+fi
+trap 'status="${?}"; echo "$(basename ${0}): status:${status} LINENO:${LINENO} BASH_LINENO:${BASH_LINENO} command:${BASH_COMMAND} functions:$(printf " %s" ${FUNCNAME[@]:-})" >&2; exit ${status}' ERR
+
+self_path="$( cd "$(dirname "${BASH_SOURCE[0]}")" && pwd )"
+self="$( cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/$(basename "${0}" )"
+
+: ${log_file:="/var/log/sinan_test.log"}
+
+while getopts "a:h?" options; do case ${options} in
+  a) a="${OPTARG}" ;;
+  h|?) help; exit ;;
+esac; done; shift $((OPTIND - 1))
+
+if [[ "$#" -eq 0 ]];then
+  ${0} help
+
+elif [[ "$1" == "help" ]];then shift
+  bash_scripts show_commands "${self}"
+
+elif [[ "$1" == "track_locked_hint" ]];then shift
+  gdbus monitor -y -d org.freedesktop.login1 2>&1 | 
+    grep --line-buffered "LockedHint" |
+    ts "%FT%T" |
+    tee -a ${log_file}
+
+elif [[ "$1" == "track_all" ]];then shift
+  gdbus monitor --system -d org.freedesktop.login1 2>&1 | 
+    ts "%FT%T" |
+    tee -a ${log_file}
+
+elif [[ "$1" == "track_login" ]];then shift
+  tail -f /var/log/auth.log |
+    grep -o --line-buffered -E '(New session [0-9]* of user|session closed for user).*' |
+    ts "%FT%T" |
+    tee -a ${log_file}
+
+elif [[ "$1" == "shutdown" ]];then shift
+  echo "shutdown" | 
+    ts "%FT%T" |
+    tee -a ${log_file}
+
+elif [[ "$1" == "gui" ]];then shift
+  echo "gui" | 
+    ts "%FT%T" |
+    tee -a ${log_file}
+  ${0} track_locked_hint
+
+elif [[ "$1" == "gui_all" ]];then shift
+  echo "gui_all" | 
+    ts "%FT%T" |
+    tee -a ${log_file}
+  ${0} track_login
+
+elif [[ "$1" == "track_all" ]];then shift
+  echo "track_all" | 
+    ts "%FT%T" |
+    tee -a ${log_file}
+  ${0} track_all
+
+else
+  echo "unknown command: ${@}" >&2
+  exit 1
+
+fi
+
